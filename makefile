@@ -7,11 +7,14 @@
 # The following values work for me (see below for an alternative):
 #
 
-INCS = -I/data/projects/phillippy/software/bamtools/include -I/data/projects/phillippy/software/bamtools/src
-LIBS = -L/data/projects/phillippy/software/boost_1_60_0/lib -L/data/projects/phillippy/software/bamtools/lib -lboost_random -lboost_system -lboost_filesystem -lboost_serialization -lbamtools
+INCS = -I/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/include/ -I/gne/home/matthejb/workspace/bamtools/include -I/gne/home/matthejb/workspace/bamtools/src
+LIBS = -L/gne/home/matthejb/workspace/bamtools/lib -L/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/lib -lboost_random -lboost_system -lboost_filesystem -lboost_serialization -lbamtools
+#LIBS = -L/gne/home/matthejb/workspace/bamtools/lib -L/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/lib/libboost_random.so -L/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/lib/libboost_system.so -L/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/lib/libboost_filesystem.so -L/gne/research/apps/boost/1.62.0/x86_64-linux-2.6-rhel6/lib/libboost_serialization.so -L/gne/home/matthejb/workspace/bamtools/lib/libbamtools.so -L/gne/home/matthejb/workspace/bamtools/lib/libbamtools-utils.a -lz
+#INCS = -I/data/projects/phillippy/software/bamtools/include -I/data/projects/phillippy/software/bamtools/src
+#LIBS = -L/data/projects/phillippy/software/boost_1_60_0/lib -L/data/projects/phillippy/software/bamtools/lib -lboost_random -lboost_system -lboost_filesystem -lboost_serialization -lbamtools
 
 # an alternative line (courtesy Peter Humburg, not working for me but for him) is
-# LIBS = /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_system.so /home/dilthey/bamtools/bamtools/lib/libbamtools.so /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.a -lz
+#LIBS = /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_random.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_filesystem.so /home/dilthey/PnP/libs/boost_1_52_0/lib/lib/libboost_system.so /home/dilthey/bamtools/bamtools/lib/libbamtools.so /home/dilthey/bamtools/bamtools/lib/libbamtools-utils.a -lz
 
 MKDIR_P = mkdir -p
 
