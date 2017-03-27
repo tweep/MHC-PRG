@@ -1,6 +1,9 @@
 #!/usr/bin/perl -w
 
 use strict;
+use MHC::Utils::HLAtypeinference; 
+use MHC::simpleHLA;
+
 use List::MoreUtils qw/all mesh any /;
 use List::Util qw/sum/;
 use Data::Dumper;
@@ -9,11 +12,14 @@ use Sys::Hostname;
 use File::Copy;
 use File::Basename;
 use Storable;
-use simpleHLA;
-use File::Basename;
+use File::Path;
+use File::Spec::Functions;
 
 my $kMer_size = 55;  
 
+my $output_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
+
+my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir 
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -62,32 +68,35 @@ my $threads = 1;
 
 my $no_fail = 0;
 my $vP = '';
+my $output_dir; 
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
 GetOptions ('graph:s' => \$graph,
- 'sampleIDs:s' => \$sampleIDs, 
- 'BAMs:s' => \$BAMs, 
- 'actions:s' => \$actions, 
- 'trueHLA:s' => \$trueHLA,
- 'trueHaplotypes:s' => \$trueHaplotypes, 
- 'referenceGenome:s' => \$referenceGenome, 
+ 'sampleIDs:s'        => \$sampleIDs, 
+ 'BAMs:s'             => \$BAMs, 
+ 'actions:s'          => \$actions, 
+ 'trueHLA:s'          => \$trueHLA,
+ 'trueHaplotypes:s'   => \$trueHaplotypes, 
+ 'referenceGenome:s'  => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
- 'T:s' => \$T,
- 'minCoverage:s' => \$minCoverage,
+ 'T:s'                => \$T,
+ 'minCoverage:s'      => \$minCoverage,
  'minPropkMersCovered:s' => \$minPropkMersCovered,
- 'all_2_dig:s' => \$all_2_dig,
- 'only_4_dig:s' => \$only_4_dig,
- 'HiSeq250bp:s' => \$HiSeq250bp, 
- 'MiSeq250bp:s' => \$MiSeq250bp, 
- 'fastExtraction:s' => \$fastExtraction, 
- 'fromPHLAT:s' => \$fromPHLAT,
+ 'all_2_dig:s'       => \$all_2_dig,
+ 'only_4_dig:s'      => \$only_4_dig,
+ 'HiSeq250bp:s'      => \$HiSeq250bp, 
+ 'MiSeq250bp:s'      => \$MiSeq250bp, 
+ 'fastExtraction:s'  => \$fastExtraction, 
+ 'fromPHLAT:s'       => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
- 'threads:s' => \$threads,
- 'no_fail:s' => \$no_fail,
- 'vP:s' => \$vP,
+ 'threads:s'         => \$threads,
+ 'no_fail:s'         => \$no_fail,
+ 'vP:s'i             => \$vP,
+ 'output_dir:s'      => \$output_dir,
 );         
+
 
 die if($fromPHLAT and $fromHLAreporter);
 my $fromMHCPRG = ((not $fromPHLAT) and (not $fromHLAreporter));
@@ -112,27 +121,25 @@ if($fastExtraction)
 	$HiSeq250bp = 1;
 }
 
-my $genome_graph_file = qq(../tmp2/GS_nextGen/hla/derived/Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx);
+my $genome_graph_file = catfile ($graph_root_dir, "GS_nextGen","hla","derived","Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx");
 unless(-e $genome_graph_file)
 {
 	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
 }
 
-my $expected_kMer_file = qq(../tmp2/GS_nextGen/${graph}/requiredkMers_graph.txt.kmers_25);
+my $expected_kMer_file = catfile($graph_root_dir, "GS_nextGen", $graph, "requiredkMers_graph.txt.kmers_25");
 unless(-e $expected_kMer_file)
 {
 	die "Please set variable \$expected_kMer_file to an existing file - the current value $expected_kMer_file is not accessible.";
 }
 
-my $exon_folder = qq(../tmp2/GS_nextGen/${graph}/);
+my $exon_folder = catfile($graph_root_dir, "GS_nextGen", $graph ); 
 unless(-e $exon_folder)
 {
 	die "Please provide a kMerified graph -- exon folder not there!";
 }
 
-my $normal_bin = qq(../bin/MHC-PRG);
-my $cluster3_bin = qq(../bin/MHC-PRG);
-my $use_bin = ((hostname() =~ /cluster3/) or (hostname() =~ /^comp[AB]\d+$/)) ? $cluster3_bin : $normal_bin;
+my $use_bin = "MHC-PRG" ; 
 unless(-e $use_bin)
 {
 	die "Cannot find expected binary: $use_bin";
@@ -158,14 +165,14 @@ if($sampleIDs =~ /^allSimulations(_\w+)?/)
 	my @dirs;
 	if($addFilter)
 	{
-		@dirs = grep {$_ =~ /I\d+_simulations${addFilter}/} grep {-d $_} glob('../tmp/hla/*');
+		@dirs = grep {$_ =~ /I\d+_simulations${addFilter}/} grep {-d $_} glob("$output_dir/hla/*");
 	}
 	else
 	{
-		@dirs = grep {$_ =~ /I\d+_simulations/} grep {-d $_} glob('../tmp/hla/*');
+		@dirs = grep {$_ =~ /I\d+_simulations/} grep {-d $_} glob( "$output_dir/hla/*");
 	}
 	
-	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /tmp\/hla\/(.+)/); $1} @dirs;
+	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$output_dir\/hla\/(.+)/); $1} @dirs;
 	
 	if($sampleIDs =~ /^all_simulations_I(\d+)/i)
 	{
@@ -183,8 +190,8 @@ if($sampleIDs =~ /^allSimulations(_\w+)?/)
 }
 elsif($sampleIDs =~ /^all/)
 {
-	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob('../tmp/hla/*');
-	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /tmp\/hla\/(.+)/); $1} @dirs;
+	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob("$output_dir/hla/*");
+	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$output_dir\/hla\/(.+)/); $1} @dirs;
 	
 	if($sampleIDs =~ /^all_I(\d+)/i)
 	{
@@ -254,11 +261,9 @@ if($actions =~ /p/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
-		unless(-e '../tmp/hla/'.$sampleID)
-		{
-			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
-		}
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p"); 
+        mkpath(catfile($output_dir, "hla", $sampleID));
+
 		
 		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file --threads $threads );
 		
@@ -309,13 +314,10 @@ if($actions =~ /l1/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
-		unless(-e '../tmp/hla/'.$sampleID)
-		{
-			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
-		}
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
+        mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
-		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ../tmp2/GS_nextGen/${graph});
+		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ${graph_root_dir}/GS_nextGen/${graph});
 		
 		if($referenceGenome)
 		{
@@ -365,13 +367,10 @@ if($actions =~ /l2/)
 		}
 		
 		
-		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p';
-		unless(-e '../tmp/hla/'.$sampleID)
-		{
-			mkdir('../tmp/hla/'.$sampleID) or die "Cannot mkdir ".'../tmp/hla/'.$sampleID;
-		}
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
+        mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
-		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ../tmp2/GS_nextGen/${graph});
+		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ${graph_root_dir}/GS_nextGen/${graph});
 		
 		if($referenceGenome)
 		{
@@ -399,19 +398,16 @@ if($actions =~ /n/)
 	my @fastQ_files;
 	my @output_files;
 	foreach my $sampleID (@sampleIDs)
-	{
-		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p';
+	{ 
+        # REDUNDANT 
+		my $fastQ_file = catfile($output_dir, "hla", $sampleID, 'reads.p');
 		my $fastQ_file_1 = $fastQ_file.'_1';
-		my $fastQ_file_2 = $fastQ_file.'_2';
-		unless(-e $fastQ_file_1)
-		{
-			die "Expected file $fastQ_file_1 not found";
-		}
-		unless(-e $fastQ_file_2)
-		{
-			die "Expected file $fastQ_file_2 not found";
-		}		
-		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
+		my $fastQ_file_2 = $fastQ_file.'_2'; 
+
+        test_if_file_exists($fastQ_file_1);  
+        test_if_file_exists($fastQ_file_2);  
+
+		my $output_file = catfile($output_dir, "hla", $sampleID ,'reads.p.n');
 		
 		push(@fastQ_files, $fastQ_file);
 		push(@output_files, $output_file);
@@ -441,31 +437,26 @@ if($actions =~ /a/)
 		
 	my @fastQ_files;
 	foreach my $sampleID (@sampleIDs)
-	{
-		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
+	{  
+        # REDUNDANT 
+		my $fastQ_file = catfile($output_dir, "hla" , $sampleID, 'reads.p.n');
 		my $fastQ_file_1 = $fastQ_file.'_1';
-		my $fastQ_file_2 = $fastQ_file.'_2';
-		unless(-e $fastQ_file_1)
-		{
-			die "Expected file $fastQ_file_1 not found";
-		}
-		unless(-e $fastQ_file_2)
-		{
-			die "Expected file $fastQ_file_2 not found";
-		}		
-		my $output_file = '../tmp/hla/'.$sampleID.'/reads.p.n';
+		my $fastQ_file_2 = $fastQ_file.'_2'; 
+
+        test_if_file_exists($fastQ_file_1); 
+        test_if_file_exists($fastQ_file_2);  
+
+		my $output_file = catfile($output_dir, "hla",$sampleID,"reads.p.n");
 		
 		push(@fastQ_files, $fastQ_file);
 	}
 	
 	my $fastQ_files = join(',', @fastQ_files);
 	
-	my $pseudoReferenceGenome = qq(../tmp2/GS_nextGen/${graph}/pseudoReferenceGenome.txt);
-	unless(-e $pseudoReferenceGenome)
-	{
-		die "Pseudo-reference file $pseudoReferenceGenome not existing.";
-	}
-	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ../tmp2/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	my $pseudoReferenceGenome = catfile ( $graph_root_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
+    test_if_file_exists($pseudoReferenceGenome);   
+
+	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${graph_root_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
 	
 	if($MiSeq250bp)
 	{
@@ -491,18 +482,16 @@ if($actions =~ /u/)
 	my @fastQ_files;
 	foreach my $sampleID (@sampleIDs)
 	{
-		my $fastQ_file = '../tmp/hla/'.$sampleID.'/reads.p';
+		my $fastQ_file = catfile( $output_dir, "hla", $sampleID, "reads.p");
 		push(@fastQ_files, $fastQ_file);
 	}
 	
 	my $fastQ_files = join(',', @fastQ_files);
 	
-	my $pseudoReferenceGenome = qq(../tmp2/GS_nextGen/${graph}/pseudoReferenceGenome.txt);
-	unless(-e $pseudoReferenceGenome)
-	{
-		die "Pseudo-reference file $pseudoReferenceGenome not existing.";
-	}
-	my $command = qq($use_bin domode alignLongUnpairedReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ../tmp2/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	my $pseudoReferenceGenome = catfile ( $graph_root_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
+    test_if_file_exists($pseudoReferenceGenome);   
+
+	my $command = qq($use_bin domode alignLongUnpairedReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${graph_root_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
 	
 	print "Now executing command:\n$command\n\n";
 	
@@ -529,10 +518,11 @@ if($actions =~ /i/)
 	foreach my $sampleID (@sampleIDs)
 	{
 		my $local_switch_long_reads = '';
-		my $aligned_file = '../tmp/hla/'.$sampleID.'/reads.p.n.aligned';
+		my $aligned_file = catfile($output_dir, "hla", $sampleID, "reads.p.n.aligned");  
+
 		unless(-e $aligned_file)
 		{
-			$aligned_file = '../tmp/hla/'.$sampleID.'/reads.p.aligned';
+			$aligned_file = catfile($output_dir, "hla", $sampleID, "reads.p.aligned");
 			$local_switch_long_reads = '--longUnpairedReads';
 			unless(-e $aligned_file)
 			{			
@@ -551,12 +541,12 @@ if($actions =~ /i/)
 	
 		push(@aligned_files, $aligned_file);
 		
-		my $stdout_file = '../tmp/hla/'.$sampleID.'/inference.stdout';
+		my $stdout_file = catfile($output_dir, "hla", $sampleID, "inference.stdout"); 
 		push(@stdout_files, $stdout_file);
 		
 		foreach my $validation_round (qw/R1 R2/)
 		{
-			my $bestguess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
+			my $bestguess_file = catfile($output_dir, "hla" , $sampleID, $validation_round.'_bestguess.txt');
 			if(-e $bestguess_file)
 			{
 				warn "Delete existing best-guess file $bestguess_file";
@@ -581,7 +571,7 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ../tmp2/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} -outputDir $output_dir ${switch_long_reads} --sampleID $sampleID);
 
 		if($MiSeq250bp)
 		{
@@ -608,11 +598,8 @@ if($actions =~ /i/)
 			}
 		}
 		
-		my $expected_bestguess_file = $aligned_file_path . '/' . 'R1_bestguess.txt';
-		unless(-e $expected_bestguess_file)
-		{
-			die "File $expected_bestguess_file not existing!";			
-		}
+		my $expected_bestguess_file = catfile($aligned_file_path, 'R1_bestguess.txt'); 
+        test_if_file_exists($expected_bestguess_file); 
 		
 		my %l_counter;
 		open(F, '<', $expected_bestguess_file) or die "Cannot open $expected_bestguess_file";
@@ -723,7 +710,7 @@ if($actions =~ /v/)
 		}
 		else
 		{
-			$bestGuess_file = '../tmp/hla/'.$sampleID.'/'.$validation_round.'_bestguess.txt';
+			$bestGuess_file = catfile( $output_dir, "hla", $sampleID, $validation_round.'_bestguess.txt');
 			unless(-e $bestGuess_file)
 			{
 				warn "Best-guess file $bestGuess_file not existing";
@@ -1281,9 +1268,12 @@ if($actions =~ /v/)
 			my $thisIndiv_OK = $thisIndiv_comparions - $thisIndiv_problems;
 			
 			my $indivID_withI = $sample_noI_toI{$indivID};
-			die unless(defined $indivID_withI);				
-			my $pileup_file = qq(../tmp/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
+			die unless(defined $indivID_withI);			
+            # replace with $output_dir 	 
+            my $pileup_fn =  $validation_round."_pileup_".$locus.".txt"; 
+			my $pileup_file = catfile(  $output_dir , "hla", $indivID_withI , $pileup_fn ; 
 				
+			#my $pileup_file = $output_dir . "/hla" qq(../${tmp_dir}/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
 			# my $coverages_href = load_coverages_from_pileup($pileup_file);
 			my $coverages_href = {};
 			my @k_coverages_existing;
@@ -1337,7 +1327,7 @@ if($actions =~ /v/)
 				load_pileup($pileup_href, $pileup_file, $indivID_withI);
 
 			
-				my $output_fn = '../tmp/hla_validation/pileup_'.$validation_round.'_'.$indivID_withI.'_'.$locus.'.txt';
+				my $output_fn = catfile($output_dir, "hla_validation", "pileup_".$validation_round."_".$indivID_withI."_".$locus.".txt");
 				open(my $output_fh, '>', $output_fn) or die "Cannot open $output_fn";
 				print $output_fh join("\t", $indivID_withI, $locus, $thisIndiv_OK), "\n";
 				
@@ -1360,7 +1350,7 @@ if($actions =~ /v/)
 				
 				foreach my $exon (@exons)
 				{
-					my $file = find_exon_file($locus, $exon);
+					my $file = find_exon_file($locus, $exon,$exon_folder);
 					my $sequences = read_exon_sequences($file);
 					my $randomKey = (keys %$sequences)[0];
 					my $randomSequence = $sequences->{$randomKey};
@@ -1578,7 +1568,7 @@ if($actions =~ /v/)
 			my $fullSampleID = $sample_noI_toI{$indivID};
 			die unless(defined $fullSampleID);
 			
-			my $sample_dir = '../tmp/hla/'.$fullSampleID;
+			my $sample_dir = catfile($output_dir, "hla", $fullSampleID);
 			my $aligned_file = $sample_dir.'/reads.p.n.aligned';
 			die "Aligned reads file $aligned_file not existing" unless(-e $aligned_file);
 			open(ALIGNED, '<', $aligned_file) or die;
@@ -1593,7 +1583,7 @@ if($actions =~ /v/)
 		}
 		close(PROBLEMSPERSAMPLE);
 	}
-	open(TMP_OUTPUT, '>', '../tmp/hla_validation/validation_summary.txt') or die;
+	open(TMP_OUTPUT, '>', catfile($output_dir, "hla_validation", "validation_summary.txt")) or die;
 	print "\nPER-LOCUS SUMMARY:\n";
 	foreach my $key (sort keys %problem_locus_detail)
 	{
@@ -1806,7 +1796,7 @@ if($actions =~ /w/)
 		my $sampleID_noI = $sampleID;
 		$sampleID_noI =~ s/^I\d+_//g;
 		
-		my @bestGuess_files = glob('../tmp/hla/'.$sampleID.'/'.$validation_round.'_haplotypes_bestguess_*.txt');
+		my @bestGuess_files = glob( catfile($output_dir, "hla", $sampleID, $validation_round.'_haplotypes_bestguess_*.txt'));
 		
 		foreach my $bestGuess_file (@bestGuess_files)
 		{
@@ -2130,7 +2120,7 @@ if($actions =~ /w/)
 	# my $comparions_OK = $comparisons - $compare_problems;
 	# print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
 		
-	open(TMP_OUTPUT, '>', '../tmp/hla_validation/validation_haplotypes_summary.txt') or die;
+	open(TMP_OUTPUT, '>', catfile($output_dir, "hla_validation","validation_haplotypes_summary.txt")) or die;
 	# print "\nPER-LOCUS SUMMARY:\n";
 	# foreach my $key (sort keys %problem_locus_detail)
 	# {
@@ -2149,665 +2139,10 @@ if($actions =~ /w/)
 }
 
 
-sub compatibleStringAlleles
-{
-	my $alleles_validation = shift;
-	my $alleles_inference = shift;
-
-	die unless($#{$alleles_inference} == 1);
-	die unless($#{$alleles_validation} == 1);
-
-	my ($OK1, $NOTOK1, $MISSING1) = compatibleStringAlleles_noFlip($alleles_validation, $alleles_inference);
-	
-	my $alleles_validation_flipped = [reverse(@$alleles_validation)];
-	my ($OK2, $NOTOK2, $MISSING2) = compatibleStringAlleles_noFlip($alleles_validation_flipped, $alleles_inference);
-	
-	# die unless($MISSING1 == $MISSING2);
-	
-	if(($NOTOK1 < $NOTOK2))
-	{
-		return ($OK1, $NOTOK1, $MISSING1);
-	}
-	elsif($NOTOK1 == $NOTOK2)
-	{
-		return (($OK1 > $OK2) ? ($OK1, $NOTOK1, $MISSING1) : ($OK2, $NOTOK2, $MISSING2));		
-	}
-	else
-	{
-		return ($OK2, $NOTOK2, $MISSING2);
-	}
-	
-	
+sub test_if_file_exists {  
+  my ($file) = @_; 
+  unless(-e $file ) {
+    die "Expected file $file not found";
+  } 
 }
 
-
-sub compatibleStringAlleles_noFlip
-{
-	my $alleles_validation = shift;
-	my $alleles_inference = shift;
-
-	die unless($#{$alleles_inference} == 1);
-	die unless($#{$alleles_validation} == 1);
-
-	my $alleles_OK = 0;
-	my $alleles_NOTOK = 0;
-	my $alleles_MISSING = 0;
-	
-	for(my $aI = 0; $aI < 2; $aI++)
-	{	
-		my ($OK, $NOTOK, $MISSING) = (compatibleStringAlleles_individual(undef, $alleles_validation->[$aI], $alleles_inference->[$aI]));
-		$alleles_OK += $OK;
-		$alleles_NOTOK += $NOTOK;
-		$alleles_MISSING += $MISSING;
-	}
-		
-	return ($alleles_OK, $alleles_NOTOK, $alleles_MISSING);
-}
-
-
-sub compatibleStringAlleles_individual
-{
-	my $locus = shift;
-	my $allele_validation = shift;	
-	my $allele_inference = shift;
-
-	if(($allele_validation =~ /\?/) || ($allele_inference =~ /\?/))
-	{
-		return (0, 0, 1);
-	}
-	else
-	{
-		if($allele_validation eq $allele_inference)
-		{
-			return (1, 0, 0);
-		}
-		else
-		{
-			return (0, 1, 0);
-		}
-	}
-}
-
-
-
-# sub compatibleAlleles
-# {
-
-	# my $alleles_validation = shift;
-	# my $alleles_inference = shift;
-
-	# die unless($#{$alleles_inference} == 1);
-	# die unless($#{$alleles_validation} == 1);
-
-	# my $r1 = compatibleAlleles_noFlip($alleles_validation, $alleles_inference);
-	
-	# my $alleles_validation_flipped = [reverse(@$alleles_validation)];
-	# my $r2 = compatibleAlleles_noFlip($alleles_validation_flipped, $alleles_inference);
-	
-	# return (($r1 > $r2) ? $r1 : $r2);
-# }
-
-
-# sub compatibleAlleles_noFlip
-# {
-
-	# my $alleles_validation = shift;
-	# my $alleles_inference = shift;
-
-	# die unless($#{$alleles_inference} == 1);
-	# die unless($#{$alleles_validation} == 1);
-
-	
-	# my $alleles_compatible = 0;
-	
-	# for(my $aI = 0; $aI < 2; $aI++)
-	# {	
-
-		# $alleles_compatible += (compatibleAlleles_individual(undef, $alleles_validation->[$aI], $alleles_inference->[$aI]));
-	# }
-
-		
-	# return $alleles_compatible;
-# }
-
-
-sub compatibleAlleles_individual
-{
-	my $locus = shift;
-	my $allele_validation = shift;
-	my $allele_inference = shift;
-	
-
-	# die Dumper($allele_validation, $allele_inference);
-	
-	my @components_allele_validation = split(/;/, $allele_validation);
-	if(scalar(@components_allele_validation) > 1)
-	{
-		my $found_compatible = 0;
-		foreach my $validation_allele (@components_allele_validation)
-		{
-			$found_compatible += compatibleAlleles_individual($locus, $validation_allele, $allele_inference);
-			last if($found_compatible);
-		}
-		if($found_compatible)
-		{
-			return 1;
-		}
-		else
-		{
-			return 0;
-		}
-	}	
-	
-	my $allele_validation_original = $allele_validation;
-		
-	if($locus eq 'C')
-	{
-		# print Dumper([$locus, $allele_validation, $allele_inference, scalar(@components_allele_validation)]);
-	}
-	
-	die "Weird allele $locus $allele_validation" unless(length($allele_validation) >= 4);
-	die unless($allele_inference =~ /:/);
-
-	
-	#die unless($allele_validation =~ /^\d\d/);
-
-	my $components_validation;
-	if($allele_validation !~ /\:/)
-	{
-		die if($allele_validation =~ /\//);
-		$allele_validation = substr($allele_validation, 0, 2).':'.substr($allele_validation, 2);
-		$components_validation = 2;
-		$allele_validation =~ s/g//i;
-		
-	}
-	else
-	{
-		my @_components = split(/\:/, $allele_validation);
-		$components_validation = scalar(@_components);
-		die "Weird allele code $allele_validation" if($allele_validation =~ /g/i);
-		die if($allele_validation =~ /D/i);
-			
-	}
-	die unless(defined $components_validation);
-	die unless($components_validation >= 2);
-
-	
-	my $true_allele = $allele_validation;
-
-		
-	my $inferred_alleles = $allele_inference;
-	my @inferred_alleles = split(/;/, $inferred_alleles);
-	
-	# if inferred allele has fewer components than validation allele: add 0s, mismatch if validation allele is not 0 at this position
-	# => conservative
-	# if inferred allele has more components than validation allele, truncate inferred allele
-	# e.g. inferred: 02:03:01, validation allele: 03:01, truncated inferred allele: 02:03
-	# if inferred and validation allele have different 4-digit groups, we always generate a mismatch
-	# if inferred and validation allele have the same 4-digit group, we generate a match
-	# e.g. inferred 02:03:01, validation: 02:03
-	# is this a problem? No. Consider two scenarios:
-	# - validation allele typed to complete 4-digit (amino acid sequence, all exons) resolution: this is what we want
-	# - validation allele typed to SBT G-groups: this case is not a problem.
-	# 		Case 1: specified as G, i.e. 02:03G
-	#			This is a bad example, because 02:03G is not a valid G allele - needs to be six digits, e.g.
-	#			02:03:01G. This is fine as long as our output is also at G group level (i.e. no
-	#			higher resolution than exon 2 / exons 2,3), as 02:03:01 will be one of our output alleles
-	#			if and only if we infer 02:03:01G as a result.
-	# 			Gs are confusing and we will deactivate them now.
-	#			(Or enable proper translation)
-	#  		Case 2: specified as explicit allele list, separated with slashes - we now assume that 02:03 is 
-	#   			one such explicit member of a list.
-	#			This case does not exist. If 02:03:01 exists as a named allele, other alleles like 02:03:02 must also exist,
-	#			and 02:03 would not be an individual member of any G group (because all members with identical
-	#			4-digit group would be differentiated by their 6-digit groups).
-
-	
-	@inferred_alleles = map {
-		# die "Can't parse allele $_" unless($_ =~ /^\s*\w+\*(\d\d\d?)\:(\d\d\d?N?).*$/);
-		# my $allele = $1.':'.$2;
-		# $allele
-		
-		die "Can't parse allele $_" unless($_ =~ /^\s*(\w+)\*([\d\:N]+Q?)L?S?$/);
-		
-		my $allele = $2;
-		
-		my @components_allele = split(/:/, $allele);
-		my @components_allele_rightLength;
-		
-		for(my $i = 0; $i < $components_validation; $i++)
-		{
-			if($i <= $#components_allele)
-			{
-				push(@components_allele_rightLength, $components_allele[$i]);
-			}
-			else
-			{
-				push(@components_allele_rightLength, '00');
-			}
-		}
-		$allele = join(':', @components_allele_rightLength);
-		
-	} @inferred_alleles;
-	
-	my %inferred = map {$_ => 1} @inferred_alleles;
-	
-	if($inferred{$true_allele})
-	{
-		# print Dumper($allele_validation_original, $allele_inference, \@inferred_alleles, 1), "\n" if ($locus eq 'DQB1');	
-		
-		return 1;  
-	}		
-	else
-	{
-		# print Dumper($allele_validation_original, $allele_inference, \@inferred_alleles, 0), "\n"  if ($locus eq 'DQB1');	
-	
-		return 0;
-	}
-}
-
-sub intersection
-{
-	my $aref1 = shift;
-	my $aref2 = shift;
-
-	my %h1 = map {$_ => 1} @$aref1;
-	my %h2 = map {$_ => 1} @$aref2;
-	
-	my %c = map {$_ => 1} ((keys %h1), (keys %h2));
-	
-	my @ret = grep {$h1{$_} and $h2{$_}} keys %c;
-	
-	return @ret;
-}
-
-sub print_which_exons
-{
-	my $locus = shift;
-	if((length($locus) == 1) or ($locus =~ /HLA\w/))
-	{
-		return (2, 3);
-	}
-	else
-	{
-		return (2);
-	}
-}	
-
-
-sub load_pileup
-{
-	my $r_href = shift;
-	my $file = shift;
-	my $indivID = shift;
-	
-	die unless($file =~ /R\d+_pileup_(\w+).txt$/);
-	my $locus = $1;
-	
-	open(F, '<', $file) or die "Cannot open $file";
-	while(<F>)
-	{
-		my $line = $_;
-		chomp($line);
-		next unless($line);
-		my @f = split(/\t/, $line, -1);
-		die unless(($#f == 3) or ($#f == 2));
-		if($#f == 3)
-		{
-			my $exon = $f[0];
-			my $exonPos = $f[1];
-			my $pileUp = $f[3];		
-			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
-		}
-		else
-		{
-			my $exon = $f[0];
-			my $exonPos = $f[1];
-			my $pileUp = '';		
-			$r_href->{$indivID}{'HLA'.$locus}[$exon][$exonPos] = $pileUp;
-		}
-	}	
-	close(F);
-}
-
-sub load_coverages_from_pileup
-{
-	my $file = shift;
-	
-	die unless($file =~ /R\d+_pileup_(\w+).txt$/);
-	my $locus = $1;
-	
-	my %forReturn;
-	
-	open(F, '<', $file) or die "Cannot open $file";
-	while(<F>)
-	{
-		my $line = $_;
-		chomp($line);
-		next unless($line);
-		die "Cannot parse pileup coverage line" unless($line =~ /^(\d+)\s(\d+)\s(\d+)/);
-		my $exon = $1;
-		my $exonPos = $2;
-		my $coverage = $3;				
-		
-		die "Pos twice in $file ? $exon $exonPos" if(defined $forReturn{$exon}{$exonPos});
-		$forReturn{$exon}{$exonPos} = $coverage;
-	}	
-	close(F);
-	
-	return \%forReturn;
-}
-
-
-sub twoValidationAlleles_2_proper_names
-{
-	my $alleles_validation = shift;
-	my $locus = shift;
-	my $exon_sequences = shift;
-	
-	die unless($#{$alleles_validation} == 1);
-	
-	my @forReturn;
-	
-	$locus =~ s/HLA//;
-	for(my $aI = 0; $aI < 2; $aI++)
-	{
-		my @vA = split(/;/, $alleles_validation->[$aI]);
-		REFALLELE: foreach my $validation_allele (@vA)
-		{
-			my $original_validation_allele = $validation_allele;
-			
-			if($validation_allele =~ /\:/)
-			{
-				$validation_allele = $locus . '*' . $validation_allele;
-				# $validation_allele =~ s/g//;
-				# my @components = split(/\:/, $validation_alleles),
-				
-				# die unless(length($validation_allele) >= 4);
-				
-				# $validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
-				# $validation_allele = $locus . '*' . $validation_allele;
-			
-			}
-			else
-			{
-				$validation_allele =~ s/g//;
-				die unless(length($validation_allele) >= 4);
-				
-				$validation_allele = substr($validation_allele, 0, 2) . ':' . substr($validation_allele, 2);
-				$validation_allele = $locus . '*' . $validation_allele;
-			}
-			my @validation_alleles = ($validation_allele);
-			
-			my @history_extensions = ($validation_allele);
-			my $extensions = 0;
-			my $notFoundFirstRound = 0;
-			while( not exists $exon_sequences->{$validation_allele} )
-			{
-				$extensions++;
-			
-				$validation_allele .= ':01';
-				push(@history_extensions, $validation_allele);
-				if($extensions > 3)
-				{
-					$notFoundFirstRound = 1;
-					last;
-				}
-				
-			}
-			
-			if($notFoundFirstRound)
-			{
-				my $extensions = 0;
-				while(scalar(grep {exists $exon_sequences->{$_}} @validation_alleles) == 0)
-				{
-					$extensions++;
-					my $viMax = $#validation_alleles;
-					for(my $vI = 0; $vI <= $viMax; $vI++)
-					{
-						my $a1 = $validation_alleles[$vI];
-						$validation_alleles[$vI] .= ':01';
-						push(@validation_alleles, $a1.':02');
-					}
-					
-					$validation_allele .= ':01';
-					if($extensions > 3)
-					{
-						# print Dumper([grep {$_ =~ /DQB1/} keys %$exon_sequences]);
-						if($validation_allele eq $vA[$#vA])
-						{
-							push(@forReturn, '?');								
-							warn Dumper("Can't identify (II) exon alleles for $alleles_validation->[$aI]", \@validation_alleles, $locus, $alleles_validation, $extensions, [(keys %$exon_sequences)[0 .. 10]], $validation_allele, $original_validation_allele, \@history_extensions);							
-							next REFALLELE;
-						}
-						else
-						{
-							next REFALLELE;
-						}
-					}
-				}		
-				
-				my @foundAlleles = grep {exists $exon_sequences->{$_}} @validation_alleles;
-				die unless(scalar(@foundAlleles) > 0);
-				push(@forReturn, $foundAlleles[0]);	
-				last REFALLELE;				
-				
-			}
-			else
-			{
-				push(@forReturn, $validation_allele);
-				last REFALLELE;
-			}
-		}
-	}
-			
-	return @forReturn;
-}
-
-sub list_comparison
-{
-	my $list1_aref = shift;
-	my $list2_aref = shift;
-	
-	my %l1 = map {$_ => 1} @$list1_aref;
-	my %l2 = map {$_ => 1} @$list2_aref;
-	
-	unless(scalar(keys %l1) == scalar(@$list1_aref))
-	{
-		die "List 1 non-unique elements";
-	}
-	
-	unless(scalar(keys %l2) == scalar(@$list2_aref))
-	{
-		die "List 2 non-unique elements";
-	}	
-	
-	my %combined = map {$_ => 1} (@$list1_aref, @$list2_aref);
-	
-	my @l1_exclusive;
-	my @l2_exclusive;
-	my $n_shared = 0;
-	foreach my $e (keys %combined)
-	{
-		if($l1{$e} and $l2{$e})
-		{
-			$n_shared++;
-		}
-		elsif($l1{$e})
-		{
-			push(@l1_exclusive, $e);
-		}
-		elsif($l2{$e})
-		{
-			push(@l2_exclusive, $e);
-		}
-		else
-		{
-			die;
-		}
-				
-	}
-	
-	die unless(($n_shared + scalar(@l1_exclusive) + scalar(@l2_exclusive)) == scalar(keys %combined));
-	
-	return ($n_shared, \@l1_exclusive, \@l2_exclusive);
-}
-
-sub twoClusterAlleles
-{
-	my $alleles_inference = shift;
-	die Dumper("Don't have two inferred alleles", $alleles_inference) unless($#{$alleles_inference} == 1);
-	
-	my @forReturn;
-	
-	for(my $aI = 0; $aI < 2; $aI++)
-	{
-		my $inferred_alleles = $alleles_inference->[$aI];
-		my @inferred_alleles = split(/;/, $inferred_alleles);
-	
-		$inferred_alleles[0] =~ s/^\s+//;
-		
-		push(@forReturn, $inferred_alleles[0]);
-	}
-	
-	return @forReturn;
-}
-
-sub averageFractionAlignmentOK
-{
-	my $dir = shift;
-	my $f = $dir . '/summaryStatistics.txt';
-	die "File $f not there" unless(-e $f);
-	
-	my $fractionOK;
-	open(STATISTICS, '<', $f) or die;
-	while(<STATISTICS>)
-	{
-		my $line = $_;
-		chomp($line);
-		last if($line =~ /unpaired/);
-		if($line =~ /Alignment pairs, average fraction alignment OK:\s+([\d\.]+)/)
-		{
-			die if(defined $fractionOK);
-			$fractionOK = $1;
-		}
-	}
-	close(STATISTICS);	
-	
-	die "Could not find fraction OK entry" unless(defined $fractionOK);
-	return $fractionOK;
-}
-
-sub inferReadLength
-{
-	my $file = shift;
-	open(ALIGNED, '<', $file) or die;
-	my $firstLine = <ALIGNED>;
-	chomp($firstLine);
-	my @have_lengths;
-	while(<ALIGNED>)
-	{
-		my $line = $_;
-		die unless($line =~ /Aligned pair /);
-		my @p1 = map {scalar(<ALIGNED>)} (1 .. 9);
-		my @p2 = map {scalar(<ALIGNED>)} (1 .. 9);
-		die unless($p1[0] =~ /Read /);
-		die unless($p2[0] =~ /Read /);
-		my $sequence_1 = $p1[7];
-		my $sequence_2 = $p1[7];
-		chomp($sequence_1);
-		chomp($sequence_2);
-		$sequence_1 =~ s/\s+//g;
-		$sequence_2 =~ s/\s+//g;
-		push(@have_lengths, length($sequence_1));
-		push(@have_lengths, length($sequence_2));
-		last if(scalar(@have_lengths) >= 20);
-	}
-	close(ALIGNED);	
-	
-	my $avg = int(sum(@have_lengths)/scalar(@have_lengths));
-	return 2*$avg;
-}
-
-sub read_exon_sequences
-{
-	my $file = shift;
-	my %r;
-	open(F, '<', $file) or die "Cannot open $file";
-	my $firstLine = <F>;
-	chomp($firstLine);
-	my @header_fields = split(/ /, $firstLine);
-	die unless($header_fields[0] eq 'IndividualID');
-	while(<F>)
-	{
-		my $line = $_;
-		chomp($line);
-		$line =~ s/\r//g;
-		$line =~ s/\n//g;
-		my @line_fields = split(/ /, $line);
-		my $allele = shift(@line_fields);
-		$r{$allele} = join('', @line_fields);
-	}
-	close(F);
-	
-	return \%r;
-}
-
-
-sub find_exon_file
-{
-	my $locus = shift;
-	my $exon = shift;
-	$locus =~ s/HLA//;
-	
-	opendir(my $dh, $exon_folder) or die;
-	my @exon_folder_files = readdir($dh);
-	closedir($dh);
-	
-	@exon_folder_files = grep {$_ =~ /^${locus}_\d+_exon_${exon}\.txt$/} @exon_folder_files;
-	if($#exon_folder_files != 0)
-	{
-		die Dumper("Can't find exon file for $locus // $exon", @exon_folder_files);
-	}
-	else
-	{
-		return $exon_folder.'/'.$exon_folder_files[0];
-	}	
-}
-
-
-sub min_avg_max
-{
-	my @v = @_;
-	@v = sort {$a <=> $b} @v;
-	if($#v >= 1)
-	{
-		die unless($v[0] <= $v[1]);
-	}
-	
-	if(scalar(@v) == 0)
-	{
-		return ('', '', '');
-	}
-	if(scalar(@v) == 1)
-	{
-		return($v[0], $v[0], '');
-	}
-	
-	my $min = $v[0];
-	my $max = $v[$#v];
-	  
-	my $sum = 0;
-	foreach my $vE (@v)
-	{
-		$sum += $vE;
-	}
-	
-	my $avg = '';
-	if(scalar(@v) > 0)
-	{
-		$avg = $sum / scalar(@v);
-	}
-	
-	return ($min, $avg, $max);
-}
