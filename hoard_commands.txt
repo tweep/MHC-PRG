@@ -1,2 +1,0 @@
-LD_PRELOAD="/home/dilthey/PnP/MHC-PRG/src/hoard/Hoard/src/libhoard.so"
-export LD_PRELOAD="/home/dilthey/PnP/MHC-PRG/src/hoard/Hoard/src/libhoard.so"

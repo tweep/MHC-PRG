@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl 
 
 use strict;
 use MHC::Utils::HLAtypeinference; 
@@ -14,12 +14,16 @@ use File::Basename;
 use Storable;
 use File::Path;
 use File::Spec::Functions;
+use File::Which; 
 
 my $kMer_size = 55;  
 
 my $output_dir ;#  = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
 
-my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir 
+my $graph_root_dir ; #= "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir  
+
+my $hla_nom_dir  ;  #  = "/gne/research/workspace/vogelj4/my_furlani_modules/mhc-prg/data/"; 
+
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -93,13 +97,14 @@ GetOptions ('graph:s' => \$graph,
  'threads:s'         => \$threads,
  'no_fail:s'         => \$no_fail,
  'vP:s'              => \$vP,
- 'output_dir:s'      => \$output_dir, 
- 'graph_root_dir:s'  => \$graph_root_dir, 
+ 'output_dir:s'      => \$output_dir,          # Directory for output  
+ 'graph_root_dir:s'  => \$graph_root_dir,      # Root dir for all graph files 
+ 'hla_nom_dir:s'     => \$hla_nom_dir,         # HLA nomenclature file (Source: http://hla.alleles.org/wmda/hla_nom_g.txt) 
 );         
 
-if ( !defined $output_dir ) {  
-   die("Please use option --output_dir to specify a location for the output files\n"); 
-} 
+
+check_input($output_dir, $hla_nom_dir, $graph_root_dir); 
+
 
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -143,7 +148,10 @@ unless(-e $exon_folder)
 	die "Please provide a kMerified graph -- exon folder not there!";
 }
 
-my $use_bin = "MHC-PRG" ; 
+
+my $use_bin = which "MHC-PRG" ; 
+print $use_bin."\n"; 
+#my $use_bin = "MHC-PRG" ; 
 unless(-e $use_bin)
 {
 	die "Cannot find expected binary: $use_bin";
@@ -575,7 +583,7 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} -outputDir $output_dir ${switch_long_reads} --sampleID $sampleID);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} --outputDir $output_dir --hlaNomDir $hla_nom_dir ${switch_long_reads} --sampleID $sampleID);
 
 		if($MiSeq250bp)
 		{
@@ -2150,3 +2158,17 @@ sub test_if_file_exists {
   } 
 }
 
+
+sub check_input { 
+  my ($output_dir, $hla_nom_dir, $graph_root_dir) = @_; 
+
+  if ( !defined $output_dir ) { 
+    die("Please use option --output_dir to specify a location for the output files\n"); 
+  } 
+  if ( !defined $hla_nom_dir ) { 
+    die("Please use option --hla_nom_dir to specify the location of the hla nomenclature file\n"); 
+  } 
+  if ( !defined $graph_root_dir ) {  
+    die("Please use option --graph_root_dir to specify the location of the graph files\n"); 
+  }  
+} 
