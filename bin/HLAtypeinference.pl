@@ -17,8 +17,7 @@ use File::Spec::Functions;
 
 my $kMer_size = 55;  
 
-
-my $tmp_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; 
+my $output_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; 
 
 my $tmp2_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/"; 
 # my @testCases = (
@@ -92,14 +91,14 @@ GetOptions ('graph:s' => \$graph,
  'fromPHLAT:s' => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
- 'threads:s' => \$threads,
- 'no_fail:s' => \$no_fail,
- 'vP:s' => \$vP,
- 'output_dir:s' => \$output_dir,
+ 'threads:s'         => \$threads,
+ 'no_fail:s'         => \$no_fail,
+ 'vP:s'i             => \$vP,
+ 'output_dir:s'      => \$output_dir,
 );         
 
 if (defined $output_dir ) {  
-   $tmp_dir = $output_dir; 
+   $output_dir = $output_dir; 
 } 
 
 
@@ -170,14 +169,14 @@ if($sampleIDs =~ /^allSimulations(_\w+)?/)
 	my @dirs;
 	if($addFilter)
 	{
-		@dirs = grep {$_ =~ /I\d+_simulations${addFilter}/} grep {-d $_} glob("$tmp_dir/hla/*");
+		@dirs = grep {$_ =~ /I\d+_simulations${addFilter}/} grep {-d $_} glob("$output_dir/hla/*");
 	}
 	else
 	{
-		@dirs = grep {$_ =~ /I\d+_simulations/} grep {-d $_} glob( "$tmp_dir/hla/*");
+		@dirs = grep {$_ =~ /I\d+_simulations/} grep {-d $_} glob( "$output_dir/hla/*");
 	}
 	
-	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$tmp_dir\/hla\/(.+)/); $1} @dirs;
+	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$output_dir\/hla\/(.+)/); $1} @dirs;
 	
 	if($sampleIDs =~ /^all_simulations_I(\d+)/i)
 	{
@@ -195,8 +194,8 @@ if($sampleIDs =~ /^allSimulations(_\w+)?/)
 }
 elsif($sampleIDs =~ /^all/)
 {
-	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob("$tmp_dir/hla/*");
-	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$tmp_dir\/hla\/(.+)/); $1} @dirs;
+	my @dirs = grep {$_ !~ /simulations/} grep {-d $_} glob("$output_dir/hla/*");
+	@sampleIDs = map {die "Can't parse $_" unless($_ =~ /$output_dir\/hla\/(.+)/); $1} @dirs;
 	
 	if($sampleIDs =~ /^all_I(\d+)/i)
 	{
@@ -266,8 +265,8 @@ if($actions =~ /p/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = catfile( $tmp_dir , "hla", $sampleID, "reads.p"); 
-        mkpath(catfile($tmp_dir, "hla", $sampleID));
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p"); 
+        mkpath(catfile($output_dir, "hla", $sampleID));
 
 		
 		my $command = qq($use_bin domode filterReads --input_BAM $BAM --positiveFilter $expected_kMer_file --output_FASTQ $output_file --threads $threads );
@@ -319,8 +318,8 @@ if($actions =~ /l1/)
 			die "Specified BAM $BAM (in --BAMs) does not exist!\n";
 		}
 		
-		my $output_file = catfile( $tmp_dir , "hla", $sampleID, "reads.p");  
-        mkpath(catfile($tmp_dir, "hla", $sampleID)); 
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
+        mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
 		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ${tmp2_dir}/GS_nextGen/${graph});
 		
@@ -372,8 +371,8 @@ if($actions =~ /l2/)
 		}
 		
 		
-		my $output_file = catfile( $tmp_dir , "hla", $sampleID, "reads.p");  
-        mkpath(catfile($tmp_dir, "hla", $sampleID)); 
+		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
+        mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
 		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ${tmp2_dir}/GS_nextGen/${graph});
 		
@@ -405,14 +404,14 @@ if($actions =~ /n/)
 	foreach my $sampleID (@sampleIDs)
 	{ 
         # REDUNDANT 
-		my $fastQ_file = catfile($tmp_dir, "hla", $sampleID, 'reads.p');
+		my $fastQ_file = catfile($output_dir, "hla", $sampleID, 'reads.p');
 		my $fastQ_file_1 = $fastQ_file.'_1';
 		my $fastQ_file_2 = $fastQ_file.'_2'; 
 
         test_if_file_exists($fastQ_file_1);  
         test_if_file_exists($fastQ_file_2);  
 
-		my $output_file = catfile($tmp_dir, "hla", $sampleID ,'reads.p.n');
+		my $output_file = catfile($output_dir, "hla", $sampleID ,'reads.p.n');
 		
 		push(@fastQ_files, $fastQ_file);
 		push(@output_files, $output_file);
@@ -444,14 +443,14 @@ if($actions =~ /a/)
 	foreach my $sampleID (@sampleIDs)
 	{  
         # REDUNDANT 
-		my $fastQ_file = catfile($tmp_dir, "hla" , $sampleID, 'reads.p.n');
+		my $fastQ_file = catfile($output_dir, "hla" , $sampleID, 'reads.p.n');
 		my $fastQ_file_1 = $fastQ_file.'_1';
 		my $fastQ_file_2 = $fastQ_file.'_2'; 
 
         test_if_file_exists($fastQ_file_1); 
         test_if_file_exists($fastQ_file_2);  
 
-		my $output_file = catfile($tmp_dir, "hla",$sampleID,"reads.p.n");
+		my $output_file = catfile($output_dir, "hla",$sampleID,"reads.p.n");
 		
 		push(@fastQ_files, $fastQ_file);
 	}
@@ -487,7 +486,7 @@ if($actions =~ /u/)
 	my @fastQ_files;
 	foreach my $sampleID (@sampleIDs)
 	{
-		my $fastQ_file = catfile( $tmp_dir, "hla", $sampleID, "reads.p");
+		my $fastQ_file = catfile( $output_dir, "hla", $sampleID, "reads.p");
 		push(@fastQ_files, $fastQ_file);
 	}
 	
@@ -523,11 +522,11 @@ if($actions =~ /i/)
 	foreach my $sampleID (@sampleIDs)
 	{
 		my $local_switch_long_reads = '';
-		my $aligned_file = catfile($tmp_dir, "hla", $sampleID, "reads.p.n.aligned");  
+		my $aligned_file = catfile($output_dir, "hla", $sampleID, "reads.p.n.aligned");  
 
 		unless(-e $aligned_file)
 		{
-			$aligned_file = catfile($tmp_dir, "hla", $sampleID, "reads.p.aligned");
+			$aligned_file = catfile($output_dir, "hla", $sampleID, "reads.p.aligned");
 			$local_switch_long_reads = '--longUnpairedReads';
 			unless(-e $aligned_file)
 			{			
@@ -546,12 +545,12 @@ if($actions =~ /i/)
 	
 		push(@aligned_files, $aligned_file);
 		
-		my $stdout_file = catfile($tmp_dir, "hla", $sampleID, "inference.stdout"); 
+		my $stdout_file = catfile($output_dir, "hla", $sampleID, "inference.stdout"); 
 		push(@stdout_files, $stdout_file);
 		
 		foreach my $validation_round (qw/R1 R2/)
 		{
-			my $bestguess_file = catfile($tmp_dir, "hla" , $sampleID, $validation_round.'_bestguess.txt');
+			my $bestguess_file = catfile($output_dir, "hla" , $sampleID, $validation_round.'_bestguess.txt');
 			if(-e $bestguess_file)
 			{
 				warn "Delete existing best-guess file $bestguess_file";
@@ -715,7 +714,7 @@ if($actions =~ /v/)
 		}
 		else
 		{
-			$bestGuess_file = catfile( $tmp_dir, "hla", $sampleID, $validation_round.'_bestguess.txt');
+			$bestGuess_file = catfile( $output_dir, "hla", $sampleID, $validation_round.'_bestguess.txt');
 			unless(-e $bestGuess_file)
 			{
 				warn "Best-guess file $bestGuess_file not existing";
@@ -1274,9 +1273,11 @@ if($actions =~ /v/)
 			
 			my $indivID_withI = $sample_noI_toI{$indivID};
 			die unless(defined $indivID_withI);			
-            # replace with $tmp_dir 	
-			my $pileup_file = qq(../${tmp_dir}/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
+            # replace with $output_dir 	 
+            my $pileup_fn =  $validation_round."_pileup_".$locus.".txt"; 
+			my $pileup_file = catfile(  $output_dir , "hla", $indivID_withI , $pileup_fn ; 
 				
+			#my $pileup_file = $output_dir . "/hla" qq(../${tmp_dir}/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
 			# my $coverages_href = load_coverages_from_pileup($pileup_file);
 			my $coverages_href = {};
 			my @k_coverages_existing;
@@ -1330,7 +1331,7 @@ if($actions =~ /v/)
 				load_pileup($pileup_href, $pileup_file, $indivID_withI);
 
 			
-				my $output_fn = catfile($tmp_dir, "hla_validation", "pileup_".$validation_round."_".$indivID_withI."_".$locus.".txt");
+				my $output_fn = catfile($output_dir, "hla_validation", "pileup_".$validation_round."_".$indivID_withI."_".$locus.".txt");
 				open(my $output_fh, '>', $output_fn) or die "Cannot open $output_fn";
 				print $output_fh join("\t", $indivID_withI, $locus, $thisIndiv_OK), "\n";
 				
@@ -1571,7 +1572,7 @@ if($actions =~ /v/)
 			my $fullSampleID = $sample_noI_toI{$indivID};
 			die unless(defined $fullSampleID);
 			
-			my $sample_dir = catfile($tmp_dir, "hla", $fullSampleID);
+			my $sample_dir = catfile($output_dir, "hla", $fullSampleID);
 			my $aligned_file = $sample_dir.'/reads.p.n.aligned';
 			die "Aligned reads file $aligned_file not existing" unless(-e $aligned_file);
 			open(ALIGNED, '<', $aligned_file) or die;
@@ -1586,7 +1587,7 @@ if($actions =~ /v/)
 		}
 		close(PROBLEMSPERSAMPLE);
 	}
-	open(TMP_OUTPUT, '>', catfile($tmp_dir, "hla_validation", "validation_summary.txt")) or die;
+	open(TMP_OUTPUT, '>', catfile($output_dir, "hla_validation", "validation_summary.txt")) or die;
 	print "\nPER-LOCUS SUMMARY:\n";
 	foreach my $key (sort keys %problem_locus_detail)
 	{
@@ -1799,7 +1800,7 @@ if($actions =~ /w/)
 		my $sampleID_noI = $sampleID;
 		$sampleID_noI =~ s/^I\d+_//g;
 		
-		my @bestGuess_files = glob( catfile($tmp_dir, "hla", $sampleID, $validation_round.'_haplotypes_bestguess_*.txt'));
+		my @bestGuess_files = glob( catfile($output_dir, "hla", $sampleID, $validation_round.'_haplotypes_bestguess_*.txt'));
 		
 		foreach my $bestGuess_file (@bestGuess_files)
 		{
@@ -2123,7 +2124,7 @@ if($actions =~ /w/)
 	# my $comparions_OK = $comparisons - $compare_problems;
 	# print "\nComparisons: $comparisons -- OK: $comparions_OK\n";
 		
-	open(TMP_OUTPUT, '>', catfile($tmp_dir, "hla_validation","validation_haplotypes_summary.txt")) or die;
+	open(TMP_OUTPUT, '>', catfile($output_dir, "hla_validation","validation_haplotypes_summary.txt")) or die;
 	# print "\nPER-LOCUS SUMMARY:\n";
 	# foreach my $key (sort keys %problem_locus_detail)
 	# {
