@@ -17,9 +17,9 @@ use File::Spec::Functions;
 
 my $kMer_size = 55;  
 
-my $output_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; 
+my $output_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
 
-my $tmp2_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/"; 
+my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir 
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -73,22 +73,22 @@ my $output_dir;
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
 GetOptions ('graph:s' => \$graph,
- 'sampleIDs:s' => \$sampleIDs, 
- 'BAMs:s' => \$BAMs, 
- 'actions:s' => \$actions, 
- 'trueHLA:s' => \$trueHLA,
- 'trueHaplotypes:s' => \$trueHaplotypes, 
- 'referenceGenome:s' => \$referenceGenome, 
+ 'sampleIDs:s'        => \$sampleIDs, 
+ 'BAMs:s'             => \$BAMs, 
+ 'actions:s'          => \$actions, 
+ 'trueHLA:s'          => \$trueHLA,
+ 'trueHaplotypes:s'   => \$trueHaplotypes, 
+ 'referenceGenome:s'  => \$referenceGenome, 
  #'validation_round:s' => \$validation_round,
- 'T:s' => \$T,
- 'minCoverage:s' => \$minCoverage,
+ 'T:s'                => \$T,
+ 'minCoverage:s'      => \$minCoverage,
  'minPropkMersCovered:s' => \$minPropkMersCovered,
- 'all_2_dig:s' => \$all_2_dig,
- 'only_4_dig:s' => \$only_4_dig,
- 'HiSeq250bp:s' => \$HiSeq250bp, 
- 'MiSeq250bp:s' => \$MiSeq250bp, 
- 'fastExtraction:s' => \$fastExtraction, 
- 'fromPHLAT:s' => \$fromPHLAT,
+ 'all_2_dig:s'       => \$all_2_dig,
+ 'only_4_dig:s'      => \$only_4_dig,
+ 'HiSeq250bp:s'      => \$HiSeq250bp, 
+ 'MiSeq250bp:s'      => \$MiSeq250bp, 
+ 'fastExtraction:s'  => \$fastExtraction, 
+ 'fromPHLAT:s'       => \$fromPHLAT,
  'fromHLAreporter:s' => \$fromHLAreporter,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
  'threads:s'         => \$threads,
@@ -96,10 +96,6 @@ GetOptions ('graph:s' => \$graph,
  'vP:s'i             => \$vP,
  'output_dir:s'      => \$output_dir,
 );         
-
-if (defined $output_dir ) {  
-   $output_dir = $output_dir; 
-} 
 
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -125,19 +121,19 @@ if($fastExtraction)
 	$HiSeq250bp = 1;
 }
 
-my $genome_graph_file = catfile ($tmp2_dir, "GS_nextGen","hla","derived","Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx");
+my $genome_graph_file = catfile ($graph_root_dir, "GS_nextGen","hla","derived","Homo_sapiens.GRCh37.60.dna.chromosome.ALL.blockedHLAgraph_k25.ctx");
 unless(-e $genome_graph_file)
 {
 	die "Please set variable \$genome_graph_file to an existing file - the current value $genome_graph_file is not accessible.";
 }
 
-my $expected_kMer_file = catfile($tmp2_dir, "GS_nextGen", $graph, "requiredkMers_graph.txt.kmers_25");
+my $expected_kMer_file = catfile($graph_root_dir, "GS_nextGen", $graph, "requiredkMers_graph.txt.kmers_25");
 unless(-e $expected_kMer_file)
 {
 	die "Please set variable \$expected_kMer_file to an existing file - the current value $expected_kMer_file is not accessible.";
 }
 
-my $exon_folder = catfile($tmp2_dir, "GS_nextGen", $graph ); 
+my $exon_folder = catfile($graph_root_dir, "GS_nextGen", $graph ); 
 unless(-e $exon_folder)
 {
 	die "Please provide a kMerified graph -- exon folder not there!";
@@ -321,7 +317,7 @@ if($actions =~ /l1/)
 		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
         mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
-		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ${tmp2_dir}/GS_nextGen/${graph});
+		my $command = qq($use_bin domode filterLongOverlappingReads --input_BAM $BAM --output_FASTQ $output_file --graphDir ${graph_root_dir}/GS_nextGen/${graph});
 		
 		if($referenceGenome)
 		{
@@ -374,7 +370,7 @@ if($actions =~ /l2/)
 		my $output_file = catfile( $output_dir , "hla", $sampleID, "reads.p");  
         mkpath(catfile($output_dir, "hla", $sampleID)); 
 		
-		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ${tmp2_dir}/GS_nextGen/${graph});
+		my $command = qq($use_bin domode filterLongOverlappingReads2 --input_BAM $BAM --input_FASTQ $FASTQ --output_FASTQ $output_file --graphDir ${graph_root_dir}/GS_nextGen/${graph});
 		
 		if($referenceGenome)
 		{
@@ -457,10 +453,10 @@ if($actions =~ /a/)
 	
 	my $fastQ_files = join(',', @fastQ_files);
 	
-	my $pseudoReferenceGenome = catfile ( $tmp2_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
+	my $pseudoReferenceGenome = catfile ( $graph_root_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
     test_if_file_exists($pseudoReferenceGenome);   
 
-	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${tmp2_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	my $command = qq($use_bin domode alignShortReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${graph_root_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
 	
 	if($MiSeq250bp)
 	{
@@ -492,10 +488,10 @@ if($actions =~ /u/)
 	
 	my $fastQ_files = join(',', @fastQ_files);
 	
-	my $pseudoReferenceGenome = catfile ( $tmp2_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
+	my $pseudoReferenceGenome = catfile ( $graph_root_dir, "GS_nextGen", $graph, "pseudoReferenceGenome.txt");  
     test_if_file_exists($pseudoReferenceGenome);   
 
-	my $command = qq($use_bin domode alignLongUnpairedReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${tmp2_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
+	my $command = qq($use_bin domode alignLongUnpairedReadsToHLAGraph --input_FASTQ $fastQ_files --graphDir ${graph_root_dir}/GS_nextGen/${graph} --referenceGenome ${pseudoReferenceGenome});
 	
 	print "Now executing command:\n$command\n\n";
 	
@@ -575,7 +571,7 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${tmp2_dir}/GS_nextGen/${graph} ${switch_long_reads} --sampleID $sampleID);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} -outputDir $output_dir ${switch_long_reads} --sampleID $sampleID);
 
 		if($MiSeq250bp)
 		{
