@@ -13,7 +13,8 @@
 #include <map>
 
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp = false);
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string hlaNomDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp = false); 
+
 void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, std::string sampleName, std::string loci_str, std::string starting_haplotype_1, std::string starting_haplotype_2, bool longUnpairedReads);
 
 void simulateHLAreads(std::string graphDir, int nIndividuals, bool exon23, bool perturbHaplotypes, bool readError, std::string outputDirectory, std::string qualityMatrixFile, int readLength, double insertSize_mean, double insertSize_sd, double haploidCoverage);
@@ -29,8 +30,8 @@ void compute_weird_Edit_distance(const std::vector<std::string>& S1, const std::
 
 double simpleChiSq(std::vector<double> observed, std::vector<double> expected);
 
-bool can_translateToG_locus(std::string locus);
-std::string translate_allele_list_to_G_allele(const std::vector<std::string>& alleles, bool& ret_perfectly);
-void read_G_alleles();
+bool can_translateToG_locus(std::string locus, std::string hlaNomDir );
+std::string translate_allele_list_to_G_allele(std::string hlaNomDir, const std::vector<std::string>& alleles, bool& ret_perfectly);
+void read_G_alleles(std::string hlaNomDir);
 
 #endif /* HLATYPES_H_ */

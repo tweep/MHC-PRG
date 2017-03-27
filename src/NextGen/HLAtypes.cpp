@@ -3851,7 +3851,7 @@ void HLAHaplotypeInference(std::string alignedReads_file, std::string graphDir, 
 	outputFN_parameters_outputStream.close();
 }
 
-void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp)
+void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::string outputDir, std::string hlaNomDir, std::string sampleName, bool restrictToFullHaplotypes, std::string& forReturn_lociString, std::string& forReturn_starting_haplotype_1, std::string& forReturn_starting_haplotype_2, bool longUnpairedReads, bool MiSeq250bp)
 {
 	std::string graph = graphDir + "/graph.txt";
 	assert(Utilities::fileReadable(graph));
@@ -4223,11 +4223,11 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 
 					std::string HLA_type_sequence = Utilities::join(line_alleles, "");
 
-					if(can_translateToG_locus(locus))
+					if(can_translateToG_locus(locus, hlaNomDir))
 					{
 						// this is an initial test!
 						bool _ignore;
-						translate_allele_list_to_G_allele({HLA_type}, _ignore);
+						translate_allele_list_to_G_allele(hlaNomDir, {HLA_type}, _ignore);
 					}
 					if(exonI == 0)
 					{
@@ -5602,12 +5602,12 @@ void HLATypeInference(std::string alignedReads_file, std::string graphDir, std::
 		bestGuess_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << n_columns_unaccounted_alleles << "\n";
 		bestGuess_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << n_columns_unaccounted_alleles << "\n" << std::flush;
 
-		if(can_translateToG_locus(locus))
+		if(can_translateToG_locus(locus, hlaNomDir))
 		{
 			bool a1_perfectly;
 			bool a2_perfectly;
-			std::string bestGuess_firstAllele_ID_G = translate_allele_list_to_G_allele({HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()}, a1_perfectly);
-			std::string bestGuess_secondAllele_ID_G = translate_allele_list_to_G_allele({HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()}, a2_perfectly);
+			std::string bestGuess_firstAllele_ID_G = translate_allele_list_to_G_allele(hlaNomDir, {HLAtype_clusters.at(bestGuess_firstAllele.second).begin(), HLAtype_clusters.at(bestGuess_firstAllele.second).end()}, a1_perfectly);
+			std::string bestGuess_secondAllele_ID_G = translate_allele_list_to_G_allele(hlaNomDir, {HLAtype_clusters.at(bestGuess_secondAllele.second).begin(), HLAtype_clusters.at(bestGuess_secondAllele.second).end()}, a2_perfectly);
 
 			bestGuess_G_outputStream << locus << "\t" << 1 << "\t" << bestGuess_firstAllele_ID_G << "\t" << bestGuess_firstAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A1 << "\t" << average_perColumn_error_rate << "\t" << n_columns_unaccounted_alleles <<  "\t" << a1_perfectly << "\n";
 			bestGuess_G_outputStream << locus << "\t" << 2 << "\t" << bestGuess_secondAllele_ID_G << "\t" << oneBestGuess_secondAllele.first << "\t" << bestGuess_secondAllele.first << "\t" << locus_coverage << "\t" << firstDecileCoverage << "\t" << minimumCoverage << "\t" << proportionkMersCovered_A2 << "\t" << average_perColumn_error_rate << "\t" << n_columns_unaccounted_alleles << "\t" << a2_perfectly << "\n" << std::flush;
@@ -7305,17 +7305,17 @@ double simpleChiSq(std::vector<double> observed, std::vector<double> expected)
         return pValue;
 }
 
-bool can_translateToG_locus(std::string locus)
+bool can_translateToG_locus(std::string locus, std::string hlaNomDir)
 {
-	read_G_alleles();
+	read_G_alleles(hlaNomDir);
 	assert(alleles_to_G.size() > 0);
 	assert(locus.find("*") == std::string::npos);
 	return (G_loci.count(locus));
 }
 
-std::string translate_allele_list_to_G_allele(const std::vector<std::string>& alleles, bool& ret_perfectly)
+std::string translate_allele_list_to_G_allele(std::string hlaNomDir, const std::vector<std::string>& alleles, bool& ret_perfectly)
 {
-	read_G_alleles();
+	read_G_alleles(hlaNomDir);
 	assert(alleles_to_G.size() > 0);
 
 	std::map<std::string, int> g_groups;
@@ -7328,7 +7328,7 @@ std::string translate_allele_list_to_G_allele(const std::vector<std::string>& al
 			throw std::runtime_error("Weird allele: "+a+"; have only things like "+oneAllele);
 		}
 		std::string locus_without_star = locus_and_allele.at(0);
-		assert(can_translateToG_locus(locus_without_star));
+		assert(can_translateToG_locus(locus_without_star, hlaNomDir ));
 		if(! alleles_to_G.count(a))
 		{
 			std::string oneAllele = alleles_to_G.begin()->first;			
@@ -7371,14 +7371,14 @@ std::string translate_allele_list_to_G_allele(const std::vector<std::string>& al
 	}
 }
 
-void read_G_alleles()
+void read_G_alleles( std::string hlaNomDir)
 {
 	if(alleles_to_G.size() == 0)
 	{
 		std::vector<std::string> _test_split = Utilities::split("A*;01:01:22;", ";");
 		assert(_test_split.size() == 3);
 
-		std::string g_filename = "hla_nom_g.txt";
+		std::string g_filename = hlaNomDir + "/hla_nom_g.txt";
 		std::ifstream gStream;
 		gStream.open(g_filename.c_str());
 		if(! gStream.is_open())

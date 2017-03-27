@@ -608,6 +608,7 @@ int main(int argc, char *argv[])
 		std::string input_alignedReads;
 		std::string graph_dir;
 		std::string output_dir; 
+		std::string hla_nom_dir; 
 		std::string sampleID;
 
 		bool longUnpairedReads = false;
@@ -629,6 +630,11 @@ int main(int argc, char *argv[])
 			{
 				output_dir = arguments.at(i+1);
 			}
+
+			if(arguments.at(i) == "--hlaNomDir")
+			{
+				hla_nom_dir = arguments.at(i+1);
+			} 
 
 			if(arguments.at(i) == "--sampleID")
 			{
@@ -668,7 +674,7 @@ int main(int argc, char *argv[])
 		
 		// todo activate
 		   
-		HLATypeInference(input_alignedReads, graph_dir, output_dir , sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads, MiSeq250bp);
+		HLATypeInference(input_alignedReads, graph_dir, output_dir, hla_nom_dir, sampleID, false, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads, MiSeq250bp);
 		
 		// HLAHaplotypeInference(input_alignedReads, graph_dir, sampleID, loci_string, starting_haplotypes_perLocus_1_str, starting_haplotypes_perLocus_2_str, longUnpairedReads);
 	}

@@ -19,7 +19,10 @@ my $kMer_size = 55;
 
 my $output_dir ;#  = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
 
-my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir 
+my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir  
+
+my $hla_nom_dir    = "/gne/research/workspace/vogelj4/my_furlani_modules/mhc-prg/data/"; 
+
 # my @testCases = (
 	# [[qw/A A/], [qw/A A/]],
 	# [[qw/? A/], [qw/A A/]],
@@ -93,8 +96,9 @@ GetOptions ('graph:s' => \$graph,
  'threads:s'         => \$threads,
  'no_fail:s'         => \$no_fail,
  'vP:s'              => \$vP,
- 'output_dir:s'      => \$output_dir, 
- 'graph_root_dir:s'  => \$graph_root_dir, 
+ 'output_dir:s'      => \$output_dir,          # Directory for output  
+ 'graph_root_dir:s'  => \$graph_root_dir,      # Root dir for all graph files 
+ 'hla_nom_file:s'    => \$hla_nom_file,        # HLA nomenclature file 
 );         
 
 if ( !defined $output_dir ) {  
@@ -575,7 +579,7 @@ if($actions =~ /i/)
 		
 		my ($aligned_file_name, $aligned_file_path) = fileparse($aligned_file);
 					
-		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} -outputDir $output_dir ${switch_long_reads} --sampleID $sampleID);
+		my $command = qq($use_bin domode HLATypeInference --input_alignedReads $aligned_file --graphDir ${graph_root_dir}/GS_nextGen/${graph} --outputDir $output_dir --hlaNomDir $hla_nom_dir ${switch_long_reads} --sampleID $sampleID);
 
 		if($MiSeq250bp)
 		{
