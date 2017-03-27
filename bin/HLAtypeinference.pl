@@ -98,7 +98,7 @@ GetOptions ('graph:s' => \$graph,
  'vP:s'              => \$vP,
  'output_dir:s'      => \$output_dir,          # Directory for output  
  'graph_root_dir:s'  => \$graph_root_dir,      # Root dir for all graph files 
- 'hla_nom_file:s'    => \$hla_nom_file,        # HLA nomenclature file 
+ 'hla_nom_dir:s'     => \$hla_nom_dir,         # HLA nomenclature file (Source: http://hla.alleles.org/wmda/hla_nom_g.txt) 
 );         
 
 if ( !defined $output_dir ) {  
