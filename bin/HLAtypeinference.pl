@@ -17,7 +17,7 @@ use File::Spec::Functions;
 
 my $kMer_size = 55;  
 
-my $output_dir = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
+my $output_dir ;#  = "/gne/research/scratch/users/vogelj4/mhc-prg/out"; # old tmp dir  
 
 my $graph_root_dir = "/gne/home/matthejb/workspace/MHC-PRG/tmp2/";  # old tmp2_dir 
 # my @testCases = (
@@ -68,7 +68,6 @@ my $threads = 1;
 
 my $no_fail = 0;
 my $vP = '';
-my $output_dir; 
 
 my @loci_for_check = qw/A B C DQA1 DQB1 DRB1/;
 
@@ -93,10 +92,14 @@ GetOptions ('graph:s' => \$graph,
  'reduce_to_4_dig:s' => \$reduce_to_4_dig,
  'threads:s'         => \$threads,
  'no_fail:s'         => \$no_fail,
- 'vP:s'i             => \$vP,
+ 'vP:s'              => \$vP,
  'output_dir:s'      => \$output_dir, 
  'graph_root_dir:s'  => \$graph_root_dir, 
 );         
+
+if ( !defined $output_dir ) {  
+   die("Please use option --output_dir to specify a location for the output files\n"); 
+} 
 
 
 die if($fromPHLAT and $fromHLAreporter);
@@ -1272,7 +1275,7 @@ if($actions =~ /v/)
 			die unless(defined $indivID_withI);			
             # replace with $output_dir 	 
             my $pileup_fn =  $validation_round."_pileup_".$locus.".txt"; 
-			my $pileup_file = catfile(  $output_dir , "hla", $indivID_withI , $pileup_fn ; 
+			my $pileup_file = catfile(  $output_dir , "hla", $indivID_withI , $pileup_fn );
 				
 			#my $pileup_file = $output_dir . "/hla" qq(../${tmp_dir}/hla/$indivID_withI/${validation_round}_pileup_${locus}.txt);
 			# my $coverages_href = load_coverages_from_pileup($pileup_file);
