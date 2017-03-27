@@ -94,7 +94,8 @@ GetOptions ('graph:s' => \$graph,
  'threads:s'         => \$threads,
  'no_fail:s'         => \$no_fail,
  'vP:s'i             => \$vP,
- 'output_dir:s'      => \$output_dir,
+ 'output_dir:s'      => \$output_dir, 
+ 'graph_root_dir:s'  => \$graph_root_dir, 
 );         
 
 
